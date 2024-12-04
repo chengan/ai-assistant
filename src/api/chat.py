@@ -24,14 +24,29 @@ def format_message(content: str, role: str = "user") -> dict:
 async def stream_chat_response(provider, messages: list, model_id: str) -> AsyncGenerator[str, None]:
     """流式返回聊天响应"""
     try:
+        logger.info(f"Starting stream chat with model: {model_id}")
+        logger.info(f"Messages: {json.dumps(messages, ensure_ascii=False, indent=2)}")
+        
         async for chunk in provider.stream_chat(messages, model_id):
             if chunk.content:
-                # 构造 SSE 格式的响应
-                yield f"data: {json.dumps({'content': chunk.content}, ensure_ascii=False)}\n\n"
+                response_data = {
+                    "content": chunk.content,
+                    "done": chunk.done
+                }
+                logger.info(f"Streaming chunk: {json.dumps(response_data, ensure_ascii=False)}")
+                yield f"data: {json.dumps(response_data, ensure_ascii=False)}\n\n"
+            else:
+                logger.warning("Received empty chunk")
+                
     except Exception as e:
-        logger.error(f"Error in stream chat: {str(e)}")
-        yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+        logger.error(f"Error in stream chat: {str(e)}", exc_info=True)
+        error_data = {
+            "error": str(e),
+            "type": type(e).__name__
+        }
+        yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
     finally:
+        logger.info("Stream completed")
         yield "data: [DONE]\n\n"
 
 @router.post("/chat", response_model=ChatResponse)
@@ -39,16 +54,21 @@ async def create_chat(chat_request: ChatRequest):
     request_id = chat_request.request_id or str(uuid.uuid4())
     
     try:
-        logger.info(f"[{request_id}] Received chat request: {json.dumps(chat_request.dict(), ensure_ascii=False)}")
+        # 记录请求数据
+        logger.info(f"[{request_id}] ====== Chat Request Start ======")
+        logger.info(f"[{request_id}] Request data: {json.dumps(chat_request.dict(), ensure_ascii=False, indent=2)}")
         
         # 获取模型信息
         model_info = ModelMapping.get_model_info(chat_request.provider_id)
+        logger.info(f"[{request_id}] Model info: {json.dumps(model_info, ensure_ascii=False, indent=2)}")
+        
         if not model_info:
             logger.error(f"[{request_id}] Invalid model ID: {chat_request.provider_id}")
             raise HTTPException(status_code=400, detail="Invalid model ID")
 
         # 创建对应的提供商实例
         provider = ProviderFactory.create(model_info["provider"])
+        logger.info(f"[{request_id}] Created provider: {model_info['provider']}")
         
         # 处理对话历史
         messages = []
@@ -63,34 +83,40 @@ async def create_chat(chat_request: ChatRequest):
             history = await redis_client.get_chat_history(chat_request.request_id)
             if history:
                 messages.extend(history)
-                logger.info(f"[{request_id}] Loaded chat history, message count: {len(history)}")
+                logger.info(f"[{request_id}] Loaded chat history: {json.dumps(history, ensure_ascii=False, indent=2)}")
             else:
                 logger.warning(f"[{request_id}] No history found for request_id: {chat_request.request_id}")
         
         # 添加新消息
         messages.append(format_message(chat_request.content))
-        logger.info(f"[{request_id}] Sending to AI provider: {json.dumps(messages, ensure_ascii=False, indent=2)}")
+        logger.info(f"[{request_id}] Final messages to provider: {json.dumps(messages, ensure_ascii=False, indent=2)}")
         
         # 调用AI服务
+        logger.info(f"[{request_id}] Calling AI provider with model_id: {model_info['model_id']}")
         response = await provider.chat(messages, model_info["model_id"])
-        logger.info(f"[{request_id}] AI provider response: {json.dumps(response.raw_response, ensure_ascii=False, indent=2)}")
+        logger.info(f"[{request_id}] Raw provider response: {json.dumps(response.raw_response, ensure_ascii=False, indent=2)}")
         
         # 保存对话历史
         messages.append(format_message(response.content, "assistant"))
         save_result = await redis_client.save_chat_history(request_id, messages)
-        if not save_result:
-            logger.warning(f"[{request_id}] Failed to save chat history")
+        logger.info(f"[{request_id}] Save history result: {save_result}")
         
+        # 构造响应
         response_data = ChatResponse(
             code=200,
             response=response.content,
             request_id=request_id
         )
-        logger.info(f"[{request_id}] Sending response: {json.dumps(response_data.dict(), ensure_ascii=False)}")
+        logger.info(f"[{request_id}] Final response: {json.dumps(response_data.dict(), ensure_ascii=False, indent=2)}")
+        logger.info(f"[{request_id}] ====== Chat Request End ======")
         
         return response_data
+
     except Exception as e:
-        logger.error(f"[{request_id}] Error in chat endpoint: {str(e)}", exc_info=True)
+        logger.error(f"[{request_id}] ====== Error ======")
+        logger.error(f"[{request_id}] Error type: {type(e).__name__}")
+        logger.error(f"[{request_id}] Error message: {str(e)}")
+        logger.error(f"[{request_id}] Stack trace:", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat/stream")

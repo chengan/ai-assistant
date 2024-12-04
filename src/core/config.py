@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # 通义千问配置
     DASHSCOPE_API_KEY: Optional[str] = None
     TONGYI_BASE_URL: str = "https://dashscope.aliyuncs.com/api/v1"
+    TONGYI_COMPATIBLE_URL: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     
     # 安全配置
     SECRET_KEY: str = "your-secret-key-here"
