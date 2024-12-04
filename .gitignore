@@ -38,3 +38,7 @@ logs/
 # Static files
 static/uploads/
 static/temp/
+
+# Environment configuration files
+.env.*
+!.env.example
