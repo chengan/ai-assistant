@@ -1,7 +1,7 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, AsyncGenerator
 import httpx
 import json
-from .base import BaseProvider, ProviderResponse
+from .base import BaseProvider, ProviderResponse, StreamResponse
 from ..core.config import settings
 import logging
 from fastapi import HTTPException
@@ -75,3 +75,50 @@ class TongyiProvider(BaseProvider):
             return bool(result.content)
         except Exception:
             return False 
+    
+    async def stream_chat(
+        self, 
+        messages: List[Dict[str, str]], 
+        model_id: str
+    ) -> AsyncGenerator[StreamResponse, None]:
+        """实现流式对话"""
+        try:
+            request_data = {
+                "model": model_id,
+                "input": {
+                    "messages": messages
+                },
+                "parameters": {
+                    **self.get_model_params(model_id),
+                    "incremental_output": True  # 启用增量输出
+                }
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/services/aigc/text-generation/generation",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "Accept": "text/event-stream",
+                    },
+                    json=request_data
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if line.strip():
+                            try:
+                                data = json.loads(line)
+                                if "output" in data:
+                                    content = data["output"]["text"]
+                                    yield StreamResponse(
+                                        content=content,
+                                        done="finish_reason" in data
+                                    )
+                            except json.JSONDecodeError:
+                                continue
+                                
+        except Exception as e:
+            logger.error(f"Error in stream chat: {str(e)}")
+            raise 

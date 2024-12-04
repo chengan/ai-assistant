@@ -34,3 +34,7 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Static files
+static/uploads/
+static/temp/

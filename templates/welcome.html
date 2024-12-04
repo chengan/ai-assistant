@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ project_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(120deg, #84fab0 0%, #8fd3f4 100%);
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <div class="container mx-auto px-4 py-16">
+        <div class="bg-white rounded-lg shadow-2xl p-8 max-w-2xl mx-auto">
+            <div class="text-center">
+                <h1 class="text-4xl font-bold text-gray-800 mb-4">
+                    🚀 {{ project_name }}
+                </h1>
+                <p class="text-gray-600 mb-8">
+                    版本 {{ version }}
+                </p>
+                <div class="flex flex-col space-y-4">
+                    <div class="bg-green-100 rounded-lg p-4">
+                        <p class="text-green-700">
+                            ✅ 服务运行正常
+                        </p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <a href="{{ api_docs_url }}" 
+                           class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded transition duration-300">
+                            📚 API 文档
+                        </a>
+                        <a href="/health" 
+                           class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded transition duration-300">
+                            💓 健康检查
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-gray-200">
+                <div class="text-center text-gray-600">
+                    <p class="mb-2">支持的模型：</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-gray-50 rounded p-2">🤖 通义千问</div>
+                        <div class="bg-gray-50 rounded p-2">🤖 百川大模型</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 

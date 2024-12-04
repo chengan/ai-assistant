@@ -1,10 +1,9 @@
-from setuptools import setup, find_namespace_packages
+from setuptools import setup, find_packages
 
 setup(
     name="ai-assistant",
     version="0.1",
-    packages=find_namespace_packages(include=['src*']),
-    package_dir={'': '.'},
+    packages=find_packages(),
     install_requires=[
         "fastapi==0.109.0",
         "pydantic==2.6.0",
